@@ -2,8 +2,17 @@ import argparse
 import asyncio
 import json
 import logging
-from pytun import TunTapDevice, IFF_TAP
+import os
+import fcntl
+import struct
 from aiortc import RTCPeerConnection, RTCSessionDescription
+
+
+TUNSETIFF = 0x400454ca
+TUNSETOWNER = TUNSETIFF + 2
+IFF_TUN = 0x0001
+IFF_TAP = 0x0002
+IFF_NO_PI = 0x1000
 
 
 def channel_log(channel, t, message):
@@ -110,6 +119,21 @@ async def run_offer(pc, tap):
     await done.wait()
 
 
+def create_tap(name):
+    uid = os.getuid()
+    # Open file corresponding to the TUN device.
+    tun = open('/dev/net/tun', 'wb')
+    ifr = struct.pack('16sH', name.encode(), IFF_TAP | IFF_NO_PI)
+    fcntl.ioctl(tun, TUNSETIFF, ifr)
+    fcntl.ioctl(tun, TUNSETOWNER, uid)
+    return tun
+
+
+def up(tun):
+    flags |= IFF_UP
+    fcntl.ioctl(tun, SIOCSIFFLAGS, ifr)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Data channels with copy-and-paste signaling')
     parser.add_argument('role', choices=['offer', 'answer'])
@@ -119,8 +143,7 @@ if __name__ == '__main__':
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    tap = TunTapDevice(flags=IFF_TAP, name="revpn-%s" % args.role)
-    tap.persist(True)
+    tap = create_tap(name="revpn-%s" % args.role)
 
     pc = create_pc()
     if args.role == 'offer':
@@ -128,7 +151,6 @@ if __name__ == '__main__':
     else:
         coro = run_answer(pc, tap)
 
-    tap.up()
     # run event loop
     loop = asyncio.get_event_loop()
     try:
