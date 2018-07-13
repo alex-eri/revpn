@@ -40,4 +40,7 @@ and
 ip a a 172.16.0.2/24 dev revpn-answer
 ```
 
-Revpn can run with bridges or dhcp-server, dhcp-client.
+Networking
+----------
+
+Revpn tap device can run with bridges or dhcp-server, dhcp-client or any other protocol.
