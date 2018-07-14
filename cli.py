@@ -38,7 +38,7 @@ def create_pc():
 def tun_reader(tap, channel):
     def reader():
         print('-', end="\r")
-        data = tap.read(tap.mtu)
+        data = tap.read(1500)
         if data:
             channel.send(data)
         print('+', end="\r")
@@ -122,7 +122,7 @@ async def run_offer(pc, tap):
 def create_tap(name):
     uid = os.getuid()
     # Open file corresponding to the TUN device.
-    tun = open('/dev/net/tun', 'wb')
+    tun = open('/dev/net/tun', 'rb+', buffering=0)
     ifr = struct.pack('16sH', name.encode(), IFF_TAP | IFF_NO_PI)
     fcntl.ioctl(tun, TUNSETIFF, ifr)
     fcntl.ioctl(tun, TUNSETOWNER, uid)
