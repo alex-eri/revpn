@@ -52,12 +52,11 @@ async def run_answer(pc, tap):
     def on_datachannel(channel):
         loop = asyncio.get_event_loop()
         if channel.label == 'vpntap':
-            tap.open()
+            tap.connected()
             loop.add_reader(
                 tap.fd, functools.partial(tun_reader, channel, tap)
                 )
             channel.on('message')(functools.partial(on_packet, tap))
-            tap.up()
 
         elif channel.label == 'chat':
             loop.add_reader(
@@ -74,7 +73,7 @@ async def run_answer(pc, tap):
     await pc.setLocalDescription(await pc.createAnswer())
     await signaling.send(pc.localDescription)
     print('> ', end='')
-    await done.wait()
+    return done
 
 
 async def run_offer(pc, tap):
@@ -96,7 +95,7 @@ async def run_offer(pc, tap):
     answer = await signaling.receive()
     await pc.setRemoteDescription(answer)
 
-    tap.open()
+    tap.connected()
 
     # send message
     loop = asyncio.get_event_loop()
@@ -104,21 +103,24 @@ async def run_offer(pc, tap):
     loop.add_reader(
         sys.stdin, functools.partial(line_reader, chat, sys.stdin)
         )
-    tap.up()
     print('> ', end='')
-    await done.wait()
+    return done
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Data channels with copy-and-paste signaling')
     parser.add_argument('role', choices=['offer', 'answer'])
     parser.add_argument('--verbose', '-v', action='count')
+    parser.add_argument('--persist', '-p', action='count')
+    parser.add_argument('--mode', '-m', choices=['tap', 'tun'])
     args = parser.parse_args()
 
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    tap = tuntap.Tun(name="revpn-%s" % args.role)
+    tap = tuntap.Tun(name="revpn-%s" % args.role, persist=args.persist)
+    tap.open()
+    tap.up()
 
     pc = create_pc()
     signaling = CopyAndPasteSignaling()
@@ -130,8 +132,10 @@ if __name__ == '__main__':
     # run event loop
     loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(coro)
+        done = loop.run_until_complete(coro)
+        loop.run_until_complete(done.wait())
     except KeyboardInterrupt:
-        pass
+        done.set()
     finally:
         loop.run_until_complete(pc.close())
+        tap.close()

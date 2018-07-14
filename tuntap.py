@@ -37,10 +37,19 @@ SIOCSIFMTU = 0x8922           # set MTU size
 
 class Tun:
     mtu = 1500
+    fd = None
 
     def __init__(self, name, mode="tap", persist=True):
         self.name = name.encode()
-
+        self.tun_flags = IFF_NO_PI
+        if persist:
+            self.tun_flags |= IFF_PERSIST
+        if mode == "tap":
+            self.tun_flags |= IFF_TAP
+        elif mode == "tun":
+            self.tun_flags |= IFF_TAP
+        else:
+            raise Exception('mode must be tap or tun')
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sockfd = sock
 
@@ -48,7 +57,10 @@ class Tun:
     def ifflags(self):
         # Get existing device flags
         ifreq = struct.pack('16sh', self.name, 0)
-        flags = struct.unpack('16sh', fcntl.ioctl(self.sockfd, SIOCGIFFLAGS, ifreq))[1]
+        flags = struct.unpack(
+            '16sh',
+            fcntl.ioctl(self.sockfd, SIOCGIFFLAGS, ifreq)
+            )[1]
         return flags
 
     @ifflags.setter
@@ -58,7 +70,10 @@ class Tun:
 
     def get_mtu(self):
         ifreq = struct.pack('16sh', self.name, 0)
-        self.mtu = struct.unpack('16sh', fcntl.ioctl(self.sockfd, SIOCGIFMTU, ifreq))[1]
+        self.mtu = struct.unpack(
+            '16sh',
+            fcntl.ioctl(self.sockfd, SIOCGIFMTU, ifreq)
+            )[1]
 
     def up(self):
         ''' Bring up interface. Equivalent to ifconfig [iface] up. '''
@@ -81,19 +96,17 @@ class Tun:
         else:
             return False
 
-    @property
-    def _fileno(self):
-        return self.fd._fileno
-
     def open(self):
         ''' Open file corresponding to the TUN device. '''
         self.fd = open('/dev/net/tun', 'rb+', buffering=0)
-        tun_flags = IFF_TAP | IFF_NO_PI | IFF_PERSIST
-        ifr = struct.pack('16sH', self.name, tun_flags)
+        ifr = struct.pack('16sH', self.name, self.tun_flags)
         fcntl.ioctl(self.fd, TUNSETIFF, ifr)
         fcntl.ioctl(self.fd, TUNSETOWNER, os.getuid())
+
+    def connected(self):
         self.ifflags = self.ifflags | IFF_RUNNING
 
     def close(self):
-        self.ifflags = self.ifflags & ~IFF_RUNNING
-        self.fd.close()
+        if self.fd:
+            self.ifflags = self.ifflags & ~IFF_RUNNING
+            self.fd.close()
