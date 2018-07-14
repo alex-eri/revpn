@@ -7,8 +7,8 @@ Install
 
 ```
 git clone https://github.com/alex-eri/revpn.git
-pip3 install -r requrements.txt
-sudo setcap CAP_NET_ADMIN=ep $(readlink -f /usr/bin/python3)
+pip3 install -r requirements.txt
+sudo setcap CAP_NET_ADMIN=ep $(readlink -f /usr/bin/python3) # for creation and admin interfaces
 ```
 
 Running
@@ -17,13 +17,13 @@ Running
 One peer:
 
 ```
-python3 cli.py offer
+python3 vpn.py offer
 ```
 
 Another peer:
 
 ```
-python3 cli.py answer
+python3 vpn.py answer
 ```
 
 Copy-paste json from offer One to Another, after copy-paste answer from Another to One.
