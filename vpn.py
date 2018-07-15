@@ -98,7 +98,13 @@ async def run_offer(pc, tap):
 
     # send message
     loop = asyncio.get_event_loop()
-    loop.add_reader(tap.fd, functools.partial(tun_reader, channel, tap))
+#    loop.add_reader(tap.fd, functools.partial(tun_reader, channel, tap))
+
+    protocol = tuntap.TunProtocol(channel)
+    transport, protocol = await loop.connect_read_pipe(
+            lambda: protocol, tap.fd
+        )
+
     loop.add_reader(
         sys.stdin, functools.partial(line_reader, chat, sys.stdin)
         )
@@ -121,6 +127,8 @@ if __name__ == '__main__':
 
     tap = tuntap.Tun(name="revpn-%s" % args.role, mode=args.mode, persist=args.persist)
     tap.open()
+    tap.disconnected()
+    tap.up()
 
     pc = create_pc()
     signaling = CopyAndPasteSignaling()
@@ -133,7 +141,6 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     done = loop.run_until_complete(coro)
 
-    tap.up()
     try:
         loop.run_until_complete(done.wait())
     except KeyboardInterrupt:

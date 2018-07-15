@@ -2,6 +2,7 @@ import os
 import fcntl
 import struct
 import socket
+import asyncio
 
 TUNSETIFF = 0x400454ca
 TUNSETOWNER = TUNSETIFF + 2
@@ -47,7 +48,7 @@ class Tun:
         if mode == "tap":
             self.tun_flags |= IFF_TAP
         elif mode == "tun":
-            self.tun_flags |= IFF_TAP
+            self.tun_flags |= IFF_TUN
         else:
             raise Exception('mode must be tap or tun')
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -106,7 +107,22 @@ class Tun:
     def connected(self):
         self.ifflags = self.ifflags | IFF_RUNNING
 
+    def disconnected(self):
+        self.ifflags = self.ifflags & ~IFF_RUNNING
+
     def close(self):
         if self.fd:
-            self.ifflags = self.ifflags & ~IFF_RUNNING
+            self.disconnected()
             self.fd.close()
+
+
+class TunProtocol(asyncio.Protocol):
+    def __init__(self, channel):
+        self._channel = channel
+        super().__init__()
+
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def data_received(self, data):
+        self._channel.send(data)
