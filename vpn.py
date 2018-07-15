@@ -7,11 +7,9 @@ import tuntap
 import sys
 import functools
 
-logger = logging.Logger('vpn')
-
 
 def channel_log(channel, t, message):
-    logger.info('channel(%s) %s %s' % (channel.label, t, repr(message)))
+    logging.info('channel(%s) %s %s' % (channel.label, t, repr(message)))
 
 
 def create_pc():
@@ -24,12 +22,9 @@ def create_pc():
 
 
 def tun_reader(channel, tap):
-    while True:
-        data = tap.fd.read(tap.mtu)
-        if data:
-            channel.send(data)
-        else:
-            break
+    data = tap.fd.read(tap.mtu)
+    if data:
+        channel.send(data)
 
 
 def line_reader(channel, fd):
@@ -47,6 +42,7 @@ def on_message(message):
 
 def on_packet(tap, data):
     tap.fd.write(data)
+
 
 async def run_answer(pc, tap):
     done = asyncio.Event()
@@ -66,6 +62,7 @@ async def run_answer(pc, tap):
                 sys.stdin, functools.partial(line_reader, channel, sys.stdin)
                 )
             channel.on('message')(on_message)
+            print('> ', end='')
 
 
     # receive offer
@@ -75,7 +72,6 @@ async def run_answer(pc, tap):
     # send answer
     await pc.setLocalDescription(await pc.createAnswer())
     await signaling.send(pc.localDescription)
-    print('> ', end='')
     return done
 
 
@@ -115,17 +111,16 @@ if __name__ == '__main__':
     parser.add_argument('role', choices=['offer', 'answer'])
     parser.add_argument('--verbose', '-v', action='count')
     parser.add_argument('--persist', '-p', action='count')
-    parser.add_argument('--mode', '-m', choices=['tap', 'tun'])
+    parser.add_argument('--mode', '-m', choices=['tap', 'tun'], default="tap")
     args = parser.parse_args()
 
-    if args.verbose > 1:
+    if args.verbose and args.verbose > 1:
         logging.basicConfig(level=logging.DEBUG)
     elif args.verbose:
         logging.basicConfig(level=logging.INFO)
 
-    tap = tuntap.Tun(name="revpn-%s" % args.role, persist=args.persist)
+    tap = tuntap.Tun(name="revpn-%s" % args.role, mode=args.mode, persist=args.persist)
     tap.open()
-    tap.up()
 
     pc = create_pc()
     signaling = CopyAndPasteSignaling()
@@ -138,6 +133,7 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     done = loop.run_until_complete(coro)
 
+    tap.up()
     try:
         loop.run_until_complete(done.wait())
     except KeyboardInterrupt:

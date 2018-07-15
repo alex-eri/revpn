@@ -19,7 +19,3 @@ class CopyAndPasteSignaling:
             'type': descr.type
         }))
         print()
-
-    async def exchange(self):
-        await self.send()
-        return await self.receive()
