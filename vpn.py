@@ -24,13 +24,13 @@ def create_pc():
 def tun_reader(channel, tap):
     data = tap.fd.read(tap.mtu)
     if data:
-        channel.send(data)
+        asyncio.ensure_future(channel.send(data))
 
 
 def line_reader(channel, fd):
     data = fd.readline()
     if data:
-        channel.send(data)
+        asyncio.ensure_future(channel.send(data))
 
 
 def on_message(message):

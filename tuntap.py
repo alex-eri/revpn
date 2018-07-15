@@ -125,4 +125,4 @@ class TunProtocol(asyncio.Protocol):
         self.transport = transport
 
     def data_received(self, data):
-        self._channel.send(data)
+        asyncio.ensure_future(self._channel.send(data))
