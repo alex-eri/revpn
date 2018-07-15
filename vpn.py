@@ -24,9 +24,12 @@ def create_pc():
 
 
 def tun_reader(channel, tap):
-    data = tap.fd.read(tap.mtu)
-    if data:
-        channel.send(data)
+    while True:
+        data = tap.fd.read(tap.mtu)
+        if data:
+            channel.send(data)
+        else:
+            break
 
 
 def line_reader(channel, fd):
@@ -115,8 +118,10 @@ if __name__ == '__main__':
     parser.add_argument('--mode', '-m', choices=['tap', 'tun'])
     args = parser.parse_args()
 
-    if args.verbose:
+    if args.verbose > 1:
         logging.basicConfig(level=logging.DEBUG)
+    elif args.verbose:
+        logging.basicConfig(level=logging.INFO)
 
     tap = tuntap.Tun(name="revpn-%s" % args.role, persist=args.persist)
     tap.open()
@@ -131,8 +136,9 @@ if __name__ == '__main__':
 
     # run event loop
     loop = asyncio.get_event_loop()
+    done = loop.run_until_complete(coro)
+
     try:
-        done = loop.run_until_complete(coro)
         loop.run_until_complete(done.wait())
     except KeyboardInterrupt:
         done.set()
