@@ -72,6 +72,7 @@ async def run_answer(pc, tap):
     # send answer
     await pc.setLocalDescription(await pc.createAnswer())
     await signaling.send(pc.localDescription)
+    await done.wait()
     return done
 
 
@@ -109,6 +110,7 @@ async def run_offer(pc, tap):
         sys.stdin, functools.partial(line_reader, chat, sys.stdin)
         )
     print('> ', end='')
+    await done.wait()
     return done
 
 
